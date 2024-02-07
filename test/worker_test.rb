@@ -2,7 +2,7 @@ require 'test_helper'
 
 context 'Resque::Worker' do
   setup do
-    Resque.data_store.redis.flushall
+    Resque.redis.flushall
 
     Resque.before_first_fork = nil
     Resque.before_fork = nil
@@ -349,7 +349,7 @@ context 'Resque::Worker' do
   end
 
   test 'Will call a before_first_fork hook only once' do
-    Resque.data_store.redis.flushall
+    Resque.redis.flushall
     $BEFORE_FORK_CALLED = 0
     Resque.before_first_fork = proc { $BEFORE_FORK_CALLED += 1 }
     workerA = Resque::Worker.new(:jobs)
@@ -366,7 +366,7 @@ context 'Resque::Worker' do
   end
 
   test 'Will call a before_fork hook before forking' do
-    Resque.data_store.redis.flushall
+    Resque.redis.flushall
     $BEFORE_FORK_CALLED = false
     Resque.before_fork = proc { $BEFORE_FORK_CALLED = true }
     workerA = Resque::Worker.new(:jobs)
@@ -397,7 +397,7 @@ context 'Resque::Worker' do
   end
 
   test 'Will call an after_fork hook after forking' do
-    Resque.data_store.redis.flushall
+    Resque.redis.flushall
     $AFTER_FORK_CALLED = false
     Resque.after_fork = proc { $AFTER_FORK_CALLED = true }
     workerA = Resque::Worker.new(:jobs)
@@ -433,9 +433,9 @@ context 'Resque::Worker' do
   end
 
   test 'reconnects to redis after fork' do
-    original_connection = Resque.redis.client.connection.instance_variable_get('@sock')
+    original_connection = Resque.redis._client.connection.instance_variable_get('@sock')
     @worker.work(0)
-    assert_not_equal original_connection, Resque.redis.client.connection.instance_variable_get('@sock')
+    assert_not_equal original_connection, Resque.redis._client.connection.instance_variable_get('@sock')
   end
 
   if !defined?(RUBY_ENGINE) || defined?(RUBY_ENGINE) && RUBY_ENGINE != 'jruby'
@@ -447,7 +447,7 @@ context 'Resque::Worker' do
           @queue = :long_running_job
 
           def self.perform(run_time, rescue_time = nil)
-            Resque.redis.client.reconnect # get its own connection
+            Resque.redis._client.reconnect # get its own connection
             Resque.redis.rpush('sigterm-test:start', Process.pid)
             sleep run_time
             Resque.redis.rpush('sigterm-test:result', 'Finished Normally')
@@ -466,7 +466,7 @@ context 'Resque::Worker' do
           # ensure we actually fork
           $TESTING = false
           # reconnect since we just forked
-          Resque.redis.client.reconnect
+          Resque.redis._client.reconnect
 
           worker = Resque::Worker.new(:long_running_job)
 
@@ -511,7 +511,7 @@ context 'Resque::Worker' do
               @queue = :long_running_job
 
               def self.perform(run_time, rescue_time = nil)
-                Resque.redis.client.reconnect # get its own connection
+                Resque.redis._client.reconnect # get its own connection
                 Resque.redis.rpush('sigterm-test:start', Process.pid)
                 sleep run_time
                 Resque.redis.rpush('sigterm-test:result', 'Finished Normally')
@@ -529,7 +529,7 @@ context 'Resque::Worker' do
               # ensure we actually fork
               $TESTING = false
               # reconnect since we just forked
-              Resque.redis.client.reconnect
+              Resque.redis._client.reconnect
 
               worker = Resque::Worker.new(:long_running_job)
               worker.term_timeout = 1
